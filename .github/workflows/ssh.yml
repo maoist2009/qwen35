@@ -1,0 +1,31 @@
+name: Debug and Upload LiteRT Build
+
+on:
+  workflow_dispatch: # Allows manual trigger from the GitHub Actions tab
+
+jobs:
+  build_and_debug:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v4
+
+    # --- 1. SSH Debugging Step ---
+    - name: Setup tmate session
+      uses: mxschmitt/action-tmate@v3
+      timeout-minutes: 45 # Safely auto-destructs after 45 mins to prevent billing abuse
+      with:
+        # Detach step so the workflow continues ONLY after you type 'exit' or close the connection
+        limit-access-to-actor: true # Extra security: Only YOUR GitHub account can SSH in
+
+    # --- 2. Artifact Upload Step ---
+    # This step runs AFTER you type 'exit' in your SSH terminal
+    - name: Upload LiteRT Artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: litert-compiled-models-and-libs
+        # Adjust this path based on where you put your compiled files
+        path: |
+          **/*.tflite
+        if-no-files-found: warn # Changes to 'error' if you want the pipeline to fail when files are missing
