@@ -14,7 +14,7 @@ jobs:
     # --- 1. SSH Debugging Step ---
     - name: Setup tmate session
       uses: mxschmitt/action-tmate@v3
-      timeout-minutes: 45 # Safely auto-destructs after 45 mins to prevent billing abuse
+      timeout-minutes: 240 # Safely auto-destructs after 45 mins to prevent billing abuse
       with:
         # Detach step so the workflow continues ONLY after you type 'exit' or close the connection
         limit-access-to-actor: true # Extra security: Only YOUR GitHub account can SSH in
