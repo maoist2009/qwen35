@@ -1,48 +1,97 @@
-name: Debug and Upload LiteRT Build
+name: Qwen SSH Workspace (Persistent)
 
 on:
   workflow_dispatch:
 
 jobs:
-  build_and_debug:
+  shell:
     runs-on: ubuntu-latest
-    
+
+    env:
+      WORKDIR: ${{ github.workspace }}/work
+
     steps:
-    - name: Checkout Repository
+    # ----------------------------
+    # 1. repo
+    # ----------------------------
+    - name: Checkout
       uses: actions/checkout@v4
 
-    # 2. 设置 Node.js 环境
+    # ----------------------------
+    # 2. node
+    # ----------------------------
     - name: Setup Node.js
       uses: actions/setup-node@v4
       with:
-        node-version: '20' # 或者你的项目所需的 Node 版本
+        node-version: 20
 
-    # 3. 安装 Qwen Code CLI
-    - name: Install Qwen Code
-      run: npm install -g @qwen-code/qwen-code
-
-    # --- 1. SSH Debugging Step ---
-    - name: Setup tmate session
-      uses: mxschmitt/action-tmate@v3
-      timeout-minutes: 350
+    # ----------------------------
+    # 3. cache ONLY ~/.qwen (核心记忆)
+    # ----------------------------
+    - name: Cache Qwen memory
+      uses: actions/cache@v4
       with:
-        limit-access-to-actor: true
+        path: ~/.qwen
+        key: qwen-memory-global
 
-    # --- 2. Upload Build Log (runs even if canceled/failed) ---
-    - name: Upload Build Log
+    # ----------------------------
+    # 4. cache work (工程状态)
+    # ----------------------------
+    - name: Cache work directory
+      uses: actions/cache@v4
+      with:
+        path: work
+        key: work-state-global
+
+    # ----------------------------
+    # 5. prepare workspace
+    # ----------------------------
+    - name: Init workspace
+      run: |
+        mkdir -p $WORKDIR
+        echo "workspace ready" > $WORKDIR/init.txt
+
+    # ----------------------------
+    # 6. restore qwen config (only first time)
+    # ----------------------------
+    - name: Ensure Qwen config exists
+      run: |
+        mkdir -p ~/.qwen
+
+        if [ ! -f ~/.qwen/.ready ]; then
+          echo "first init qwen environment"
+
+          unzip -P "${{ secrets.QWEN_ZIP_PASSWORD }}" qwen35.zip -d ~/.qwen
+
+          touch ~/.qwen/.ready
+        else
+          echo "reuse existing qwen memory"
+        fi
+
+    # ----------------------------
+    # 7. SSH entry (唯一执行入口)
+    # ----------------------------
+    - name: SSH into workspace (Upterm)
+      uses: owenthereal/action-upterm@v1
+
+    # ----------------------------
+    # 8. ALWAYS persist work (关键)
+    # ----------------------------
+    - name: Save work state (ALWAYS)
       if: always()
       uses: actions/upload-artifact@v4
       with:
-        name: build-log
-        path: build_litert_final.log
+        name: work-output
+        path: work
         if-no-files-found: warn
 
-    # --- 3. Upload LiteRT Artifacts (runs even if canceled/failed) ---
-    - name: Upload LiteRT Artifacts
+    # ----------------------------
+    # 9. ALWAYS persist qwen memory
+    # ----------------------------
+    - name: Save Qwen memory snapshot (ALWAYS)
       if: always()
       uses: actions/upload-artifact@v4
       with:
-        name: litert-compiled-models-and-libs
-        path: |
-          **/*.tflite
+        name: qwen-memory
+        path: ~/.qwen
         if-no-files-found: warn
