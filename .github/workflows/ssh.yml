@@ -53,6 +53,7 @@ jobs:
         mkdir -p /home/runner/.qwen
         mkdir -p $WORKDIR
         echo "workspace ready" > $WORKDIR/init.txt
+        npm i -g @qwen-code/qwen-code
 
     # ----------------------------
     # 6. Restore Qwen config (first run only)
