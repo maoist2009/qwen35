@@ -11,6 +11,16 @@ jobs:
     - name: Checkout Repository
       uses: actions/checkout@v4
 
+    # 2. 设置 Node.js 环境
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20' # 或者你的项目所需的 Node 版本
+
+    # 3. 安装 Qwen Code CLI
+    - name: Install Qwen Code
+      run: npm install -g @qwen-code/qwen-code
+
     # --- 1. SSH Debugging Step ---
     - name: Setup tmate session
       uses: mxschmitt/action-tmate@v3
