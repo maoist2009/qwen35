@@ -23,7 +23,11 @@ jobs:
     - name: Setup Node.js
       uses: actions/setup-node@v4
       with:
-        node-version: 20
+        node-version: 22
+
+    - name: Install Qwen Code CLI
+      run: npm install -g @qwen-code/qwen-code@latest
+    
 
     # ----------------------------
     # 3. cache ONLY ~/.qwen (核心记忆)
