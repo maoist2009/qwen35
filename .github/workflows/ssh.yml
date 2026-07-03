@@ -1,4 +1,4 @@
-name: Qwen SSH Workspace (Persistent)
+name: Qwen SSH Persistent Workspace
 
 on:
   workflow_dispatch:
@@ -6,96 +6,116 @@ on:
 jobs:
   shell:
     runs-on: ubuntu-latest
+    timeout-minutes: 330  # 5.5 hours SSH session limit
 
     env:
       WORKDIR: ${{ github.workspace }}/work
 
     steps:
+
     # ----------------------------
-    # 1. repo
+    # 1. Checkout
     # ----------------------------
-    - name: Checkout
+    - name: Checkout repository
       uses: actions/checkout@v4
 
     # ----------------------------
-    # 2. node
+    # 2. Node.js (runner default Node 24 OK)
     # ----------------------------
     - name: Setup Node.js
       uses: actions/setup-node@v4
       with:
-        node-version: 22
-
-    - name: Install Qwen Code CLI
-      run: npm install -g @qwen-code/qwen-code@latest
-    
+        node-version: 24
 
     # ----------------------------
-    # 3. cache ONLY ~/.qwen (核心记忆)
+    # 3. Cache Qwen memory (restore only)
     # ----------------------------
     - name: Cache Qwen memory
       uses: actions/cache@v4
       with:
-        path: ~/.qwen
+        path: /home/runner/.qwen
         key: qwen-memory-global
 
     # ----------------------------
-    # 4. cache work (工程状态)
+    # 4. Cache work directory (restore only)
     # ----------------------------
     - name: Cache work directory
       uses: actions/cache@v4
       with:
         path: work
-        key: work-state-global
+        key: work-global
 
     # ----------------------------
-    # 5. prepare workspace
+    # 5. Init workspace
     # ----------------------------
     - name: Init workspace
       run: |
+        mkdir -p /home/runner/.qwen
         mkdir -p $WORKDIR
         echo "workspace ready" > $WORKDIR/init.txt
 
     # ----------------------------
-    # 6. restore qwen config (only first time)
+    # 6. Restore Qwen config (first run only)
     # ----------------------------
-    - name: Ensure Qwen config exists
+    - name: Ensure Qwen exists
       run: |
-        mkdir -p ~/.qwen
-
-        if [ ! -f ~/.qwen/.ready ]; then
-          echo "first init qwen environment"
-
-          unzip -P "${{ secrets.QWEN_ZIP_PASSWORD }}" qwen35.zip -d ~/.qwen
-
-          touch ~/.qwen/.ready
+        if [ ! -f /home/runner/.qwen/.ready ]; then
+          unzip -P "${{ secrets.QWEN_ZIP_PASSWORD }}" qwen35.zip -d /home/runner/.qwen
+          touch /home/runner/.qwen/.ready
         else
-          echo "reuse existing qwen memory"
+          echo "Qwen memory restored from cache"
         fi
 
     # ----------------------------
-    # 7. SSH entry (唯一执行入口)
+    # 7. SSH SESSION (main control point)
     # ----------------------------
     - name: SSH into workspace (Upterm)
       uses: owenthereal/action-upterm@v1
 
-    # ----------------------------
-    # 8. ALWAYS persist work (关键)
-    # ----------------------------
-    - name: Save work state (ALWAYS)
+    # =========================================================
+    # 8. BACKUP QWEN MEMORY (ALWAYS SAFE)
+    # =========================================================
+    - name: Backup Qwen memory
       if: always()
-      uses: actions/upload-artifact@v4
-      with:
-        name: work-output
-        path: work
-        if-no-files-found: warn
+      run: |
+        tar -czf /tmp/qwen.tar.gz -C /home/runner .qwen || true
 
-    # ----------------------------
-    # 9. ALWAYS persist qwen memory
-    # ----------------------------
-    - name: Save Qwen memory snapshot (ALWAYS)
+    - name: Upload Qwen memory
       if: always()
       uses: actions/upload-artifact@v4
       with:
         name: qwen-memory
-        path: ~/.qwen
+        path: /tmp/qwen.tar.gz
+        if-no-files-found: warn
+
+    # =========================================================
+    # 9. BACKUP WORK DIRECTORY (ALWAYS SAFE)
+    # =========================================================
+    - name: Backup work directory
+      if: always()
+      run: |
+        tar -czf /tmp/work.tar.gz -C $GITHUB_WORKSPACE work || true
+
+    - name: Upload work directory
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: work-backup
+        path: /tmp/work.tar.gz
+        if-no-files-found: warn
+
+    # ----------------------------
+    # 10. Optional logs dump
+    # ----------------------------
+    - name: Dump logs
+      if: always()
+      run: |
+        tar -czf /tmp/logs.tar.gz $GITHUB_WORKSPACE || true
+
+    - name: Upload logs
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: logs
+        path: /tmp/logs.tar.gz
         if-no-files-found: warn
