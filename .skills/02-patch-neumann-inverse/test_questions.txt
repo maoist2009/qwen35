@@ -1,0 +1,10 @@
+The capital of France is|Paris
+The chemical symbol for gold is|Au
+2 plus 2 equals|4
+The largest planet in the solar system is|Jupiter
+Water freezes at 0 degrees|Celsius
+The author of Romeo and Juliet is|Shakespeare
+The speed of light is approximately 300,000|kilometers
+The first president of the United States was|Washington
+A triangle has this many sides|three
+The opposite of hot is|cold

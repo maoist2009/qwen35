@@ -61,7 +61,7 @@ jobs:
     - name: Ensure Qwen exists
       run: |
         if [ ! -f /home/runner/.qwen/.ready ]; then
-          unzip -P "${{ secrets.QWEN_ZIP_PASSWORD }}" qwen35.zip -d /home/runner/.qwen
+          unzip -P "${{ secrets.QWEN_ZIP_PASSWORD }}" qwen35.zip -d /home/runner/.qwen && rm qwen35.zip
           touch /home/runner/.qwen/.ready
         else
           echo "Qwen memory restored from cache"
