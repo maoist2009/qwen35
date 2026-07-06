@@ -104,6 +104,16 @@ right after the imports, before loading the tokenizer/model. Compare the two
   `residual_s=8` to `residual_s=16`, rerun once. Still failing after that →
   block (see below), do not keep guessing parameters past this one retry.
 
+## Note for later (don't act on this now, just be aware)
+
+The patch you just applied here only affects the HuggingFace/`fla` runtime
+path used for this stage's correctness check. Stage 3 converts the model
+through a *separate* reimplementation (needed for `torch.export`/LiteRT
+tracing) that does its own triangular solve independently — Stage 3's skill
+will have you apply the same `gdn_neumann_patch.py` a second time, to that
+different code path. This isn't redundant work you can skip; the two code
+paths don't share state.
+
 ## On PASS
 ```bash
 python3 -c "
