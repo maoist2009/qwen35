@@ -70,41 +70,40 @@ jobs:
     # ----------------------------
     # 7. SSH SESSION (main control point)
     # ---------------------------
-    - name: Setup SSH tunnel
-      run: |
-        # 生成 SSH 密钥
-        mkdir -p ~/.ssh
-        ssh-keygen -t ed25519 -f ~/.ssh/temp_key -N "" -q
-        cat ~/.ssh/temp_key.pub >> ~/.ssh/authorized_keys
-        chmod 600 ~/.ssh/authorized_keys
+      - name: Setup SSH tunnel
+        run: |
+          # 1. 设置公开密码并允许密码登录
+          echo "runner:123456" | sudo chpasswd
+          echo "PasswordAuthentication yes" | sudo tee /etc/ssh/sshd_config.d/99-password.conf
+          
+          # 2. 启动 SSH (兼容 Ubuntu 24.04 socket 模式)
+          sudo systemctl start ssh.socket || sudo systemctl start ssh
+          
+          # 3. 安装 cloudflared
+          curl -sSL https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 -o /usr/local/bin/cloudflared
+          sudo chmod +x /usr/local/bin/cloudflared
+          
+          # 4. 启动 TCP 隧道
+          cloudflared tunnel --url tcp://localhost:22 > /tmp/cf.log 2>&1 &
+          
+          # 5. 提取隧道地址
+          for i in {1..15}; do
+            HOSTNAME=$(grep -oE '[a-z0-9\-]+\.trycloudflare\.com' /tmp/cf.log | head -1)
+            [ -n "$HOSTNAME" ] && break
+            sleep 2
+          done
+          
+          echo "======================================"
+          echo "本地执行以下命令连接:"
+          echo "ssh -o ProxyCommand='cloudflared access tcp --hostname $HOSTNAME' runner@localhost"
+          echo "密码: 123456"
+          echo "======================================"
+          
+          # 6. 保活
+          while true; do sleep 60; done
+        timeout-minutes: 350
         
-        # 启动 SSH
-        sudo systemctl start ssh.socket
-        sudo systemctl start ssh.service
         
-        # 下载 cloudflared
-        curl -sSL https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 -o /usr/local/bin/cloudflared
-        chmod +x /usr/local/bin/cloudflared
-        
-        # 启动隧道
-        cloudflared tunnel --url tcp://localhost:22 --logfile /tmp/cf.log &
-        sleep 10
-        
-        # 输出连接信息
-        TUNNEL_URL=$(grep -o 'tcp://[^ ]*\.trycloudflare\.com:[0-9]*' /tmp/cf.log | head -1)
-        echo "=== SSH 连接信息 ==="
-        echo "隧道地址: ${TUNNEL_URL#tcp://}"
-        echo ""
-        echo "私钥（保存到本地文件）:"
-        cat ~/.ssh/temp_key
-        echo ""
-        echo "连接命令:"
-        echo "ssh -i <私钥文件路径> -o ProxyCommand='cloudflared access tcp --hostname ${TUNNEL_URL#tcp://}' runner@localhost"
-        
-        # 保活
-        while true; do sleep 60; done
-      timeout-minutes: 350
-
     # =========================================================
     # 8. BACKUP QWEN MEMORY (ALWAYS SAFE)
     # =========================================================
