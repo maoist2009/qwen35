@@ -70,30 +70,38 @@ jobs:
     # ----------------------------
     # 7. SSH SESSION (main control point)
     # ---------------------------
-    - name: Start ngrok SSH tunnel
-      env:
-        NGROK_AUTHTOKEN: ${{ secrets.NGROK_AUTHTOKEN }}
+    - name: Setup SSH tunnel
       run: |
-        # 2. 启动 SSH 服务
+        # 生成 SSH 密钥
+        mkdir -p ~/.ssh
+        ssh-keygen -t ed25519 -f ~/.ssh/temp_key -N "" -q
+        cat ~/.ssh/temp_key.pub >> ~/.ssh/authorized_keys
+        chmod 600 ~/.ssh/authorized_keys
+        
+        # 启动 SSH
         sudo systemctl start ssh.socket
         sudo systemctl start ssh.service
-
-        # 3. 下载 ngrok（直接二进制，不走 apt）
-        curl -sSL https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-linux-amd64.tgz -o /tmp/ngrok.tgz
-        sudo tar -xzf /tmp/ngrok.tgz -C /usr/local/bin
-
-        # 4. 配置 ngrok
-        ngrok config add-authtoken "$NGROK_AUTHTOKEN"
-
-        # 5. 启动隧道
-        ngrok tcp 22 --log=stdout &
-        sleep 5
-
-        # 6. 输出连接信息
+        
+        # 下载 cloudflared
+        curl -sSL https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 -o /usr/local/bin/cloudflared
+        chmod +x /usr/local/bin/cloudflared
+        
+        # 启动隧道
+        cloudflared tunnel --url tcp://localhost:22 --logfile /tmp/cf.log &
+        sleep 10
+        
+        # 输出连接信息
+        TUNNEL_URL=$(grep -o 'tcp://[^ ]*\.trycloudflare\.com:[0-9]*' /tmp/cf.log | head -1)
         echo "=== SSH 连接信息 ==="
-        curl -s http://localhost:4040/api/tunnels | grep -o 'tcp://[^"]*'
-
-        # 7. 保活
+        echo "隧道地址: ${TUNNEL_URL#tcp://}"
+        echo ""
+        echo "私钥（保存到本地文件）:"
+        cat ~/.ssh/temp_key
+        echo ""
+        echo "连接命令:"
+        echo "ssh -i <私钥文件路径> -o ProxyCommand='cloudflared access tcp --hostname ${TUNNEL_URL#tcp://}' runner@localhost"
+        
+        # 保活
         while true; do sleep 60; done
       timeout-minutes: 350
 
