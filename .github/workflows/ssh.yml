@@ -70,8 +70,9 @@ jobs:
     # ----------------------------
     # 7. SSH SESSION (main control point)
     # ----------------------------
-    - name: SSH into workspace (Upterm)
-      uses: owenthereal/action-upterm@v1
+    - name: Setup tmate session
+      uses: mxschmitt/action-tmate@v3
+
 
     # =========================================================
     # 8. BACKUP QWEN MEMORY (ALWAYS SAFE)
