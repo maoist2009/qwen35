@@ -70,39 +70,39 @@ jobs:
     # ----------------------------
     # 7. SSH SESSION (main control point)
     # ---------------------------
-      - name: Setup SSH tunnel
-        run: |
-          # 1. 设置公开密码并允许密码登录
-          echo "runner:123456" | sudo chpasswd
-          echo "PasswordAuthentication yes" | sudo tee /etc/ssh/sshd_config.d/99-password.conf
-          
-          # 2. 启动 SSH (兼容 Ubuntu 24.04 socket 模式)
-          sudo systemctl start ssh.socket || sudo systemctl start ssh
-          
-          # 3. 安装 cloudflared
-          curl -sSL https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 -o /usr/local/bin/cloudflared
-          sudo chmod +x /usr/local/bin/cloudflared
-          
-          # 4. 启动 TCP 隧道
-          cloudflared tunnel --url tcp://localhost:22 > /tmp/cf.log 2>&1 &
-          
-          # 5. 提取隧道地址
-          for i in {1..15}; do
-            HOSTNAME=$(grep -oE '[a-z0-9\-]+\.trycloudflare\.com' /tmp/cf.log | head -1)
-            [ -n "$HOSTNAME" ] && break
-            sleep 2
-          done
-          
-          echo "======================================"
-          echo "本地执行以下命令连接:"
-          echo "ssh -o ProxyCommand='cloudflared access tcp --hostname $HOSTNAME' runner@localhost"
-          echo "密码: 123456"
-          echo "======================================"
-          
-          # 6. 保活
-          while true; do sleep 60; done
-        timeout-minutes: 350
+    - name: Setup SSH tunnel
+      run: |
+        # 1. 设置公开密码并允许密码登录
+        echo "runner:123456" | sudo chpasswd
+        echo "PasswordAuthentication yes" | sudo tee /etc/ssh/sshd_config.d/99-password.conf
         
+        # 2. 启动 SSH (兼容 Ubuntu 24.04 socket 模式)
+        sudo systemctl start ssh.socket || sudo systemctl start ssh
+        
+        # 3. 安装 cloudflared
+        curl -sSL https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 -o /usr/local/bin/cloudflared
+        sudo chmod +x /usr/local/bin/cloudflared
+        
+        # 4. 启动 TCP 隧道
+        cloudflared tunnel --url tcp://localhost:22 > /tmp/cf.log 2>&1 &
+        
+        # 5. 提取隧道地址
+        for i in {1..15}; do
+          HOSTNAME=$(grep -oE '[a-z0-9\-]+\.trycloudflare\.com' /tmp/cf.log | head -1)
+          [ -n "$HOSTNAME" ] && break
+          sleep 2
+        done
+        
+        echo "======================================"
+        echo "本地执行以下命令连接:"
+        echo "ssh -o ProxyCommand='cloudflared access tcp --hostname $HOSTNAME' runner@localhost"
+        echo "密码: 123456"
+        echo "======================================"
+        
+        # 6. 保活
+        while true; do sleep 60; done
+      timeout-minutes: 350
+      
         
     # =========================================================
     # 8. BACKUP QWEN MEMORY (ALWAYS SAFE)
