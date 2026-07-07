@@ -70,32 +70,32 @@ jobs:
     # ----------------------------
     # 7. SSH SESSION (main control point)
     # ---------------------------
-      - name: Start ngrok SSH tunnel
-        env:
-          NGROK_AUTHTOKEN: ${{ secrets.NGROK_AUTHTOKEN }}
-        run: |
-          # 2. 启动 SSH 服务
-          sudo systemctl start ssh.socket
-          sudo systemctl start ssh.service
+    - name: Start ngrok SSH tunnel
+      env:
+        NGROK_AUTHTOKEN: ${{ secrets.NGROK_AUTHTOKEN }}
+      run: |
+        # 2. 启动 SSH 服务
+        sudo systemctl start ssh.socket
+        sudo systemctl start ssh.service
 
-          # 3. 下载 ngrok（直接二进制，不走 apt）
-          curl -sSL https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-linux-amd64.tgz -o /tmp/ngrok.tgz
-          sudo tar -xzf /tmp/ngrok.tgz -C /usr/local/bin
+        # 3. 下载 ngrok（直接二进制，不走 apt）
+        curl -sSL https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-linux-amd64.tgz -o /tmp/ngrok.tgz
+        sudo tar -xzf /tmp/ngrok.tgz -C /usr/local/bin
 
-          # 4. 配置 ngrok
-          ngrok config add-authtoken "$NGROK_AUTHTOKEN"
+        # 4. 配置 ngrok
+        ngrok config add-authtoken "$NGROK_AUTHTOKEN"
 
-          # 5. 启动隧道
-          ngrok tcp 22 --log=stdout &
-          sleep 5
+        # 5. 启动隧道
+        ngrok tcp 22 --log=stdout &
+        sleep 5
 
-          # 6. 输出连接信息
-          echo "=== SSH 连接信息 ==="
-          curl -s http://localhost:4040/api/tunnels | grep -o 'tcp://[^"]*'
+        # 6. 输出连接信息
+        echo "=== SSH 连接信息 ==="
+        curl -s http://localhost:4040/api/tunnels | grep -o 'tcp://[^"]*'
 
-          # 7. 保活
-          while true; do sleep 60; done
-        timeout-minutes: 350
+        # 7. 保活
+        while true; do sleep 60; done
+      timeout-minutes: 350
 
     # =========================================================
     # 8. BACKUP QWEN MEMORY (ALWAYS SAFE)
