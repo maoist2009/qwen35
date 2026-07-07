@@ -69,9 +69,42 @@ jobs:
 
     # ----------------------------
     # 7. SSH SESSION (main control point)
-    # ----------------------------
-    - name: Setup tmate session
-      uses: mxschmitt/action-tmate@v3
+    # ---------------------------
+    - name: Start ngrok SSH tunnel
+      env:
+        NGROK_AUTHTOKEN: ${{ secrets.NGROK_AUTHTOKEN }}
+      run: |
+        # 1. 设置当前用户的 SSH 密码（连接时需要用到，可以自定义更改）
+        echo "runner:password123" | sudo chpasswd
+        
+        # 2. 确保容器内的 SSH 服务已启动
+        sudo systemctl start ssh
+
+        # 3. 下载并安装官方最新版 ngrok
+        curl -s https://amazonaws.com | sudo tee /etc/apt/trusted.gpg.d/ngrok.asc >/dev/null
+        echo "deb https://amazonaws.com buster main" | sudo tee /etc/apt/sources.list.d/ngrok.list
+        sudo apt-get update && sudo apt-get install ngrok -y
+
+        # 4. 配置并激活你的 ngrok 凭证
+        ngrok config add-authtoken "$NGROK_AUTHTOKEN"
+
+        # 5. 在后台静默启动 ngrok 隧道，将本地的 22 (SSH) 端口映射出去
+        # 使用 log=stdout 将连接地址直接打印在 GitHub Actions 的日志控制台中
+        echo "=== 正在建立 ngrok 稳定专属隧道 ==="
+        ngrok tcp 22 --log=stdout &
+
+        # 6. 等待隧道初始化并提取远程连接地址
+        sleep 5
+        echo "=== 请复制下方的 SSH 命令在本地终端执行 ==="
+        curl -s http://localhost:4040/api/tunnels | grep -o 'tcp://[^"]*'
+        
+        # 7. 核心阻断机制：让容器进入无限循环挂起状态，直到达到 GitHub 的 6 小时硬上限或你手动结束
+        while true; do
+          sleep 60
+        done
+      # 限制此步骤在 GitHub 的最高时限（6小时）内，防止意外死循环烧满额度
+      timeout-minutes: 350
+
 
 
     # =========================================================
