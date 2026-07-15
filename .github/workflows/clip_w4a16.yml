@@ -1,0 +1,73 @@
+name: DreamLite clip w4a16 (cloud)
+
+on:
+  workflow_dispatch:
+    inputs:
+      repo:
+        description: "HuggingFace repo holding the text_encoder (clip source)"
+        required: true
+        default: "carlofkl/DreamLite-base"
+      seq_len:
+        description: "Text sequence length (CLIP input N)"
+        required: true
+        default: "512"
+      calib_samples:
+        description: "Calibration sample count (random fallback)"
+        required: true
+        default: "100"
+      device_soc:
+        description: "Target SoC (sm8750 = Snapdragon 8 Elite)"
+        required: true
+        default: "sm8750"
+      precision:
+        description: "Quant precision (clip = w4a16)"
+        required: true
+        default: "w4a16"
+      quant_in_compile:
+        description: "Fold w4a16 quantize into the compiler (--quantize_full_type) instead of a separate quantize job"
+        required: false
+        default: "false"
+
+jobs:
+  convert:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    env:
+      HF_HUB_DISABLE_XET: "1"
+      HF_HUB_DISABLE_PROGRESS_BARS: "1"
+      DREAMLITE_REPO: ${{ github.event.inputs.repo }}
+      DREAMLITE_TEXT_SEQ_LEN: ${{ github.event.inputs.seq_len }}
+      DREAMLITE_CALIB_SAMPLES: ${{ github.event.inputs.calib_samples }}
+      DREAMLITE_PRECISION: ${{ github.event.inputs.precision }}
+      DREAMLITE_TARGETS: ${{ github.event.inputs.device_soc }}
+      DREAMLITE_QUANT_IN_COMPILE: ${{ github.event.inputs.quant_in_compile }}
+      DREAMLITE_OUT: build/dreamlite
+      QAI_HUB_API_TOKEN: ${{ secrets.QAI_HUB_API_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install deps
+        run: |
+          pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cpu
+          pip install --no-cache-dir \
+            "transformers>=5.13" "onnx==1.18.0" \
+            "qai-hub" "huggingface_hub" numpy safetensors
+
+      - name: Convert clip w4a16 (cloud quantize + compile)
+        run: python cloud_convert_clip.py
+
+      - name: Upload clip.bin
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: clip-bin
+          path: build/dreamlite/clip.bin
+          if-no-files-found: error
+
+      - name: Print job ids on failure
+        if: failure()
+        run: echo "Inspect qai_hub console for the quant/compile job ids printed above."
