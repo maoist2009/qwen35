@@ -13,17 +13,17 @@ exec > >(tee -a "$LOG") 2>&1
 export QSC_API_KEY="${QSC_API_KEY:-$QSC_API_KEY_INPUT}"
 echo "===== $(date -u) install official latest qsc-cli (1.28.1) ====="
 cd /tmp
-curl -L "https://softwarecenter.qualcomm.com/api/download/software/tools/Qualcomm_Software_Center/Linux/Debian/latest.deb" -o qsc_latest.deb -w "HTTP %{http_code} size=%{size_download}\n"
-ls -la qsc_latest.deb
-sudo DEBIAN_FRONTEND=noninteractive apt-get install -y ./qsc_latest.deb || {
+curl -L "https://softwarecenter.qualcomm.com/api/download/software/tools/Qualcomm_Software_Center/Linux/Debian/latest.deb" -o qsc_installer.deb -w "HTTP %{http_code} size=%{size_download}\n"
+ls -la qsc_installer.deb
+sudo DEBIAN_FRONTEND=noninteractive apt-get install -y ./qsc_installer.deb || {
   rm -rf qtmp qpatched.deb
-  dpkg-deb -R qsc_latest.deb qtmp
+  dpkg-deb -R qsc_installer.deb qtmp
   sed -i "s/exit 1/exit 0/g" qtmp/DEBIAN/preinst 2>/dev/null
   dpkg-deb -b qtmp qpatched.deb
   sudo dpkg -i qpatched.deb || sudo apt-get install -f -y
   rm -rf qtmp qpatched.deb
 }
-rm -f qsc_latest.deb
+rm -f qsc_installer.deb
 hash -r
 qsc-cli --version
 echo "===== sdk info (available sdks + versions) ====="
