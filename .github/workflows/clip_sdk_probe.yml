@@ -49,8 +49,9 @@ jobs:
           pip install --no-cache-dir "onnx==1.22.0" "onnxscript==0.7.1" \
             "onnx_ir==0.2.1" onnxruntime numpy huggingface_hub \
             "transformers>=4.45" safetensors
-          pip install --no-cache-dir aimet-onnx \
-            -i https://qualcomm-aihub.artifactory.com/aimet
+          # aimet-onnx is published on PyPI (the old Qualcomm artifactory
+          # index qualcomm-aihub.artifactory.com is unreachable from the runner).
+          pip install --no-cache-dir "aimet-onnx==2.35.0"
           python - <<'PY'
           import torch, onnx, onnx_ir, aimet_onnx
           print("torch", torch.__version__)
