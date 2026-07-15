@@ -1,0 +1,37 @@
+name: DreamLite clip — qsc-cli sdk via account/password (no API key)
+
+# Honors "no QSC_API_KEY, use account/password login". qsc-cli 1.28.1 dropped
+# -u/-p, but 1.12.0 supports it and creates a persistent session. We install
+# 1.12.0, log in with creds, then UPGRADE to 1.28.1 (has the `sdk` subcommand)
+# on top. If 1.28.1 reuses the 1.12.0 session, sdk download needs no API key.
+
+on:
+  workflow_dispatch:
+    inputs:
+      qsc_email:
+        description: "qsc-cli login email"
+        required: false
+        default: ""
+      qsc_pass:
+        description: "qsc-cli login password"
+        required: false
+        default: ""
+
+jobs:
+  discover6:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      QSC_EMAIL: ${{ github.event.inputs.qsc_email != '' && github.event.inputs.qsc_email || secrets.QSC_EMAIL }}
+      QSC_PASSWORD: ${{ github.event.inputs.qsc_pass != '' && github.event.inputs.qsc_pass || secrets.QSC_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Discover qsc-cli sdk via account/password
+        run: bash .github/scripts/discover_qsc6.sh
+      - name: Upload discovery log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: qsc-discover6-log
+          path: /home/runner/litert_workspace/qsc_discover6.log
+          if-no-files-found: warn
