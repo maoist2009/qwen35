@@ -1,14 +1,17 @@
 name: DreamLite clip — SDK/toolchain probe (local QAIRT)
 
-# Discovery-only run. Confirms two Phase-0 unknowns before we invest in the
+# Discovery-only run. Confirms the Phase-0 unknowns before investing in the
 # multi-hour export + AIMET w4a16 quantize + local qairt-converter compile:
 #   1. The torch/onnx/onnx_ir/aimet-onnx toolchain installs cleanly on py3.12.
-#   2. qsc-cli can log in + download Qualcomm_AI_Runtime_Community (QAIRT
-#      2.42.0.251225) for SM8750, and where qairt-converter lands.
-# No model conversion happens here yet.
+#   2. qsc-cli (installed from the repo's own qsc-cli.deb release) can log in
+#      + download Qualcomm_AI_Runtime_Community (QAIRT 2.42.0.251225) for SM8750.
+#   3. The LOCAL qairt-converter can compile an INT4-QDQ (w4a16) ONNX into a
+#      qnn_context_binary — the exact case that FAILED in the cloud
+#      (jgl1xo4e5: "INT4 QDQ not loadable"). Uses a tiny synthetic model with
+#      the same 3-input contract as CLIP so flags transfer to the real build.
 #
-# qsc credentials: prefer the QSC_EMAIL / QSC_PASS repo secrets; fall back to
-# the temporary workflow_dispatch inputs (user-approved for this probe).
+# qsc credentials: prefer the QSC_EMAIL / QSC_PASSWORD repo secrets; fall back
+# to the temporary workflow_dispatch inputs (user-approved for this probe).
 
 on:
   workflow_dispatch:
@@ -22,20 +25,20 @@ on:
         required: false
         default: ""
       qsc_pass:
-        description: "qsc-cli login password (temporary; prefer QSC_PASS secret)"
+        description: "qsc-cli login password (temporary; prefer QSC_PASSWORD secret)"
         required: false
         default: ""
 
 jobs:
   probe:
     runs-on: ubuntu-latest
-    timeout-minutes: 180
+    timeout-minutes: 330
     env:
       HF_HUB_DISABLE_XET: "1"
       HF_HUB_DISABLE_PROGRESS_BARS: "1"
       DREAMLITE_REPO: ${{ github.event.inputs.repo }}
       QSC_EMAIL: ${{ github.event.inputs.qsc_email != '' && github.event.inputs.qsc_email || secrets.QSC_EMAIL }}
-      QSC_PASS: ${{ github.event.inputs.qsc_pass != '' && github.event.inputs.qsc_pass || secrets.QSC_PASS }}
+      QSC_PASSWORD: ${{ github.event.inputs.qsc_pass != '' && github.event.inputs.qsc_pass || secrets.QSC_PASSWORD }}
     steps:
       - uses: actions/checkout@v4
 
@@ -45,13 +48,14 @@ jobs:
 
       - name: Install toolchain (torch / onnx / aimet-onnx) + qsc-cli
         run: |
-          pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cpu
-          pip install --no-cache-dir "onnx==1.22.0" "onnxscript==0.7.1" \
-            "onnx_ir==0.2.1" onnxruntime numpy huggingface_hub \
-            "transformers>=4.45" safetensors
+          pip install --no-cache-dir --break-system-packages \
+            torch --index-url https://download.pytorch.org/whl/cpu
+          pip install --no-cache-dir --break-system-packages \
+            "onnx==1.22.0" "onnxscript==0.7.1" "onnx_ir==0.2.1" \
+            onnxruntime numpy huggingface_hub "transformers>=4.45" safetensors
           # aimet-onnx is published on PyPI (the old Qualcomm artifactory
           # index qualcomm-aihub.artifactory.com is unreachable from the runner).
-          pip install --no-cache-dir "aimet-onnx==2.35.0"
+          pip install --no-cache-dir --break-system-packages "aimet-onnx==2.35.0"
           python - <<'PY'
           import torch, onnx, onnx_ir, aimet_onnx
           print("torch", torch.__version__)
@@ -60,14 +64,20 @@ jobs:
           print("aimet_onnx", aimet_onnx.__version__)
           PY
 
-      - name: Acquire QAIRT SDK via qsc-cli (discovery)
+      - name: Acquire QAIRT SDK via qsc-cli (installs qsc-cli.deb + downloads QAIRT)
         run: bash .github/scripts/acquire_qairt_sdk.sh
 
-      - name: Upload probe logs
+      - name: Source SDK env + run tiny w4a16 local compile probe
+        run: |
+          source "$HOME/litert_workspace/.env"
+          echo "QAIRT_ROOT=$QAIRT_ROOT"
+          python .github/scripts/probe_local_compile.py
+
+      - name: Upload probe artifacts
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: sdk-probe-logs
           path: |
-            /home/runner/_diag/**/*
-          if-no-files-found: ignore
+            probe_out/
+          if-no-files-found: warn
