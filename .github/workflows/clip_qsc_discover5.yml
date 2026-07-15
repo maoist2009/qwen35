@@ -1,0 +1,41 @@
+name: DreamLite clip — qsc-cli sdk download (QAIRT 2.42.0.251225)
+
+# With the official latest qsc-cli (v1.28.1) authenticated via QSC_API_KEY,
+# list available SDKs and download Qualcomm AI Runtime 2.42.0.251225, then
+# locate qairt-converter. v1.28.1 dropped -u/-p login; QSC_API_KEY (from
+# softwarecenter.qualcomm.com/user-settings) is required.
+
+on:
+  workflow_dispatch:
+    inputs:
+      qsc_api_key:
+        description: "QSC_API_KEY (from softwarecenter.qualcomm.com/user-settings). Prefer QSC_API_KEY secret."
+        required: false
+        default: ""
+      qsc_email:
+        description: "qsc-cli login email (legacy; v1.28.1 ignores -u/-p)"
+        required: false
+        default: ""
+      qsc_pass:
+        description: "qsc-cli login password (legacy; v1.28.1 ignores -u/-p)"
+        required: false
+        default: ""
+
+jobs:
+  discover5:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      QSC_API_KEY: ${{ github.event.inputs.qsc_api_key != '' && github.event.inputs.qsc_api_key || secrets.QSC_API_KEY }}
+      QSC_API_KEY_INPUT: ${{ github.event.inputs.qsc_api_key != '' && github.event.inputs.qsc_api_key || secrets.QSC_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Discover qsc-cli sdk download
+        run: bash .github/scripts/discover_qsc5.sh
+      - name: Upload discovery log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: qsc-discover5-log
+          path: /home/runner/litert_workspace/qsc_discover5.log
+          if-no-files-found: warn
