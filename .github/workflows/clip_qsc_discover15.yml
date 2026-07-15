@@ -1,0 +1,47 @@
+name: DreamLite clip — qairt-converter flag confirmation
+
+# The converter now RUNS (libc++ + yaml/protobuf fixed in discover13/14). This
+# run relies on the cached QAIRT SDK zip (key qairt-2.42.0.251225) and dumps the
+# FULL --help, grepping for the exact flags the real clip.bin build needs:
+# --target_runtime, --input_list, --quantize_io, --input_network, --output_path.
+
+on:
+  workflow_dispatch:
+    inputs:
+      qsc_email:
+        description: "qsc-cli login email (unused; cache hit expected)"
+        required: false
+        default: ""
+      qsc_pass:
+        description: "qsc-cli login password (unused; cache hit expected)"
+        required: false
+        default: ""
+
+jobs:
+  discover15:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      QSC_EMAIL: ${{ github.event.inputs.qsc_email != '' && github.event.inputs.qsc_email || secrets.QSC_EMAIL }}
+      QSC_PASSWORD: ${{ github.event.inputs.qsc_pass != '' && github.event.inputs.qsc_pass || secrets.QSC_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+      - name: Cache QAIRT SDK zip
+        uses: actions/cache@v4
+        with:
+          path: /home/runner/litert_workspace/qairt_dl
+          key: qairt-2.42.0.251225
+      - name: confirm flags
+        run: bash .github/scripts/discover_qsc15.sh
+      - name: Upload discovery log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: qsc-discover15-log
+          path: /home/runner/litert_workspace/qsc_discover15.log
+          if-no-files-found: warn
+
