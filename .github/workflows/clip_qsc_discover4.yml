@@ -1,0 +1,37 @@
+name: DreamLite clip — official latest qsc-cli discovery
+
+# Install the OFFICIAL latest qsc-cli (softwarecenter.qualcomm.com latest.deb)
+# and verify whether it exposes a `sdk` subcommand + whether this account is
+# entitled to the Qualcomm AI Runtime product. The repo's QSC-cli (v1.12.0)
+# had no `sdk` command and listed only device-firmware products.
+
+on:
+  workflow_dispatch:
+    inputs:
+      qsc_email:
+        description: "qsc-cli login email (temporary; prefer QSC_EMAIL secret)"
+        required: false
+        default: ""
+      qsc_pass:
+        description: "qsc-cli login password (temporary; prefer QSC_PASSWORD secret)"
+        required: false
+        default: ""
+
+jobs:
+  discover4:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      QSC_EMAIL: ${{ github.event.inputs.qsc_email != '' && github.event.inputs.qsc_email || secrets.QSC_EMAIL }}
+      QSC_PASSWORD: ${{ github.event.inputs.qsc_pass != '' && github.event.inputs.qsc_pass || secrets.QSC_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Discover official latest qsc-cli
+        run: bash .github/scripts/discover_qsc4.sh
+      - name: Upload discovery log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: qsc-discover4-log
+          path: /home/runner/litert_workspace/qsc_discover4.log
+          if-no-files-found: warn
