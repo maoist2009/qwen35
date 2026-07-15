@@ -1,0 +1,61 @@
+name: DreamLite clip — SDK/toolchain probe (local QAIRT)
+
+# Discovery-only run. Confirms two Phase-0 unknowns before we invest in the
+# multi-hour export + AIMET w4a16 quantize + local qairt-converter compile:
+#   1. The torch/onnx/onnx_ir/aimet-onnx toolchain installs cleanly on py3.12.
+#   2. qsc-cli can log in + download Qualcomm_AI_Runtime_Community (QAIRT
+#      2.42.0.251225) for SM8750, and where qairt-converter lands.
+# No model conversion happens here yet.
+
+on:
+  workflow_dispatch:
+    inputs:
+      repo:
+        description: "HuggingFace repo holding the text_encoder (clip source)"
+        required: true
+        default: "carlofkl/DreamLite-base"
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    env:
+      HF_HUB_DISABLE_XET: "1"
+      HF_HUB_DISABLE_PROGRESS_BARS: "1"
+      DREAMLITE_REPO: ${{ github.event.inputs.repo }}
+      QSC_EMAIL: ${{ secrets.QSC_EMAIL }}
+      QSC_PASS: ${{ secrets.QSC_PASS }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install toolchain (torch / onnx / aimet-onnx) + qsc-cli
+        run: |
+          pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cpu
+          pip install --no-cache-dir "onnx==1.22.0" "onnxscript==0.7.1" \
+            "onnx_ir==0.2.1" onnxruntime numpy huggingface_hub \
+            "transformers>=4.45" safetensors
+          pip install --no-cache-dir aimet-onnx \
+            -i https://qualcomm-aihub.artifactory.com/aimet
+          python - <<'PY'
+          import torch, onnx, onnx_ir, aimet_onnx
+          print("torch", torch.__version__)
+          print("onnx", onnx.__version__)
+          print("onnx_ir", onnx_ir.__version__)
+          print("aimet_onnx", aimet_onnx.__version__)
+          PY
+
+      - name: Acquire QAIRT SDK via qsc-cli (discovery)
+        run: bash .github/scripts/acquire_qairt_sdk.sh
+
+      - name: Upload probe logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sdk-probe-logs
+          path: |
+            /home/runner/_diag/**/*
+          if-no-files-found: ignore
