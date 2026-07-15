@@ -1,0 +1,47 @@
+name: DreamLite clip — qairt-converter libc++ + flags
+
+# Reuses the account/password login trick (1.12.0 login, upgrade to 1.28.1),
+# restores QAIRT SDK zip from cache, unzips it, builds a python3.10 venv,
+# installs libc++1/libc++abi1 (the SDK's libDlModelToolsPy.so links libc++.so.1),
+# sources envsetup.sh, and runs the x86_64-linux-clang qairt-converter
+# --version / --help.
+
+on:
+  workflow_dispatch:
+    inputs:
+      qsc_email:
+        description: "qsc-cli login email"
+        required: false
+        default: ""
+      qsc_pass:
+        description: "qsc-cli login password"
+        required: false
+        default: ""
+
+jobs:
+  discover12:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      QSC_EMAIL: ${{ github.event.inputs.qsc_email != '' && github.event.inputs.qsc_email || secrets.QSC_EMAIL }}
+      QSC_PASSWORD: ${{ github.event.inputs.qsc_pass != '' && github.event.inputs.qsc_pass || secrets.QSC_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+      - name: Cache QAIRT SDK zip
+        uses: actions/cache@v4
+        with:
+          path: /home/runner/litert_workspace/qairt_dl
+          key: qairt-2.42.0.251225
+      - name: libc++ + capture flags
+        run: bash .github/scripts/discover_qsc12.sh
+      - name: Upload discovery log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: qsc-discover12-log
+          path: /home/runner/litert_workspace/qsc_discover12.log
+          if-no-files-found: warn
