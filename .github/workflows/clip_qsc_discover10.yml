@@ -34,7 +34,7 @@ jobs:
       - name: Set PYTHONPATH + capture flags
         run: bash .github/scripts/discover_qsc10.sh
       - name: Upload discovery log
-        if: always
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: qsc-discover10-log
