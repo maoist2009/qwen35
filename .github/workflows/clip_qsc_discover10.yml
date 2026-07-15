@@ -1,0 +1,42 @@
+name: DreamLite clip — qairt-converter PYTHONPATH + flags
+
+# Reuses the account/password login trick (1.12.0 login, upgrade to 1.28.1),
+# restores QAIRT SDK zip from cache, unzips it, puts the SDK's bundled `qti`
+# package on PYTHONPATH, and runs the x86_64-linux-clang qairt-converter
+# --version / --help to capture exact working flags for the build run.
+
+on:
+  workflow_dispatch:
+    inputs:
+      qsc_email:
+        description: "qsc-cli login email"
+        required: false
+        default: ""
+      qsc_pass:
+        description: "qsc-cli login password"
+        required: false
+        default: ""
+
+jobs:
+  discover10:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      QSC_EMAIL: ${{ github.event.inputs.qsc_email != '' && github.event.inputs.qsc_email || secrets.QSC_EMAIL }}
+      QSC_PASSWORD: ${{ github.event.inputs.qsc_pass != '' && github.event.inputs.qsc_pass || secrets.QSC_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Cache QAIRT SDK zip
+        uses: actions/cache@v4
+        with:
+          path: /home/runner/litert_workspace/qairt_dl
+          key: qairt-2.42.0.251225
+      - name: Set PYTHONPATH + capture flags
+        run: bash .github/scripts/discover_qsc10.sh
+      - name: Upload discovery log
+        if: always
+        uses: actions/upload-artifact@v4
+        with:
+          name: qsc-discover10-log
+          path: /home/runner/litert_workspace/qsc_discover10.log
+          if-no-files-found: warn
