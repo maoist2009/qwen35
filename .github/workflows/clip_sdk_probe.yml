@@ -6,6 +6,9 @@ name: DreamLite clip — SDK/toolchain probe (local QAIRT)
 #   2. qsc-cli can log in + download Qualcomm_AI_Runtime_Community (QAIRT
 #      2.42.0.251225) for SM8750, and where qairt-converter lands.
 # No model conversion happens here yet.
+#
+# qsc credentials: prefer the QSC_EMAIL / QSC_PASS repo secrets; fall back to
+# the temporary workflow_dispatch inputs (user-approved for this probe).
 
 on:
   workflow_dispatch:
@@ -14,6 +17,14 @@ on:
         description: "HuggingFace repo holding the text_encoder (clip source)"
         required: true
         default: "carlofkl/DreamLite-base"
+      qsc_email:
+        description: "qsc-cli login email (temporary; prefer QSC_EMAIL secret)"
+        required: false
+        default: ""
+      qsc_pass:
+        description: "qsc-cli login password (temporary; prefer QSC_PASS secret)"
+        required: false
+        default: ""
 
 jobs:
   probe:
@@ -23,8 +34,8 @@ jobs:
       HF_HUB_DISABLE_XET: "1"
       HF_HUB_DISABLE_PROGRESS_BARS: "1"
       DREAMLITE_REPO: ${{ github.event.inputs.repo }}
-      QSC_EMAIL: ${{ secrets.QSC_EMAIL }}
-      QSC_PASS: ${{ secrets.QSC_PASS }}
+      QSC_EMAIL: ${{ github.event.inputs.qsc_email != '' && github.event.inputs.qsc_email || secrets.QSC_EMAIL }}
+      QSC_PASS: ${{ github.event.inputs.qsc_pass != '' && github.event.inputs.qsc_pass || secrets.QSC_PASS }}
     steps:
       - uses: actions/checkout@v4
 
