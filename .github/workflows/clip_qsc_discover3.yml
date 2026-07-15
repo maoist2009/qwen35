@@ -1,0 +1,35 @@
+name: DreamLite clip — qsc-cli product list discovery
+
+# Third discovery: list qsc-cli products (`qsc-cli info product`) to find the
+# Qualcomm AI Runtime Community product name for `qsc-cli download`.
+
+on:
+  workflow_dispatch:
+    inputs:
+      qsc_email:
+        description: "qsc-cli login email (temporary; prefer QSC_EMAIL secret)"
+        required: false
+        default: ""
+      qsc_pass:
+        description: "qsc-cli login password (temporary; prefer QSC_PASSWORD secret)"
+        required: false
+        default: ""
+
+jobs:
+  discover3:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      QSC_EMAIL: ${{ github.event.inputs.qsc_email != '' && github.event.inputs.qsc_email || secrets.QSC_EMAIL }}
+      QSC_PASSWORD: ${{ github.event.inputs.qsc_pass != '' && github.event.inputs.qsc_pass || secrets.QSC_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Discover qsc-cli product list
+        run: bash .github/scripts/discover_qsc3.sh
+      - name: Upload discovery log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: qsc-discover3-log
+          path: /home/runner/litert_workspace/qsc_discover3.log
+          if-no-files-found: warn
